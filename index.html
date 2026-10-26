@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Huninn&family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=1.1">
+<link rel="stylesheet" href="style.css?v=1.2">
 </head>
 <body>
 
@@ -23,10 +23,10 @@
   <section class="tab active" id="tab-story">
     <div class="hero">
       <h1>說出你的故事，<br>剩下的交給小幫手</h1>
-      <p>照著三步驟做：填故事 → 放照片影片 → 交給主管前先自我評審。</p>
+      <p>這一頁做兩件事：回答 8 題、把拍好的素材全部放進來，AI 就會幫你剪好。</p>
       <div class="steps">
-        <div><b>① 寫故事</b>回答 8 題，AI 寫好 6 幕分鏡與字卡</div>
-        <div><b>② 做影片</b>每一幕放照片影片，手機直接輸出 MP4</div>
+        <div><b>① 故事＋素材</b>回答 8 題、放進所有照片影片</div>
+        <div><b>② 確認輸出</b>AI 剪好後確認人物、字卡、配樂，輸出 MP4</div>
         <div><b>③ 評審</b>依騰燁 5 大原則打分數、給建議</div>
       </div>
     </div>
@@ -52,7 +52,9 @@
     </div>
 
     <div class="panel">
-      <button class="btn primary block" id="btnGenScript" type="button">✨ AI 幫我寫分鏡腳本</button>
+      <h2>還沒拍素材？先看拍攝清單</h2>
+      <p class="sub">AI 依你的故事列出 6 幕分鏡、每一幕要準備的照片影片、要問親友的訪談題目。已經拍好可以跳過。</p>
+      <button class="btn block" id="btnGenScript" type="button">✨ AI 幫我列拍攝清單與分鏡</button>
       <div id="noAiBox" class="hidden" style="margin-top:12px">
         <div class="notice">目前尚未接上 AI。請按「複製 Prompt」貼到 ChatGPT／Gemini／Claude，再把 AI 的回覆整段貼回下面。</div>
         <button class="btn block" id="btnCopyScriptPrompt" type="button">📋 複製 Prompt</button>
@@ -66,23 +68,10 @@
     </div>
 
     <div id="scriptOut"></div>
-  </section>
-
-  <!-- ② 做影片 -->
-  <section class="tab" id="tab-video">
-    <div class="hero">
-      <h1>放進照片與影片</h1>
-      <p>最快的方法：素材一次全選進來，交給 AI 自動剪輯。也可以在下方各幕自己放。</p>
-    </div>
 
     <div class="panel auto-panel">
-      <h2>🪄 AI 自動剪輯</h2>
-      <p class="sub">把拍好的照片、訪談、加油影片<b>一次全部選進來</b>。AI 會看畫面、聽訪談，挑出精華片段，自動排成 6 幕並配上字卡。</p>
-      <ol class="list" style="margin-top:0">
-        <li>先完成「① 寫故事」（AI 才知道你的故事）</li>
-        <li>按下方按鈕選取所有素材（可以分好幾次選）</li>
-        <li>按「開始 AI 自動剪輯」，等幾分鐘，畫面保持開啟</li>
-      </ol>
+      <h2>放進所有素材，AI 幫你剪</h2>
+      <p class="sub">照片、親友訪談、加油自拍影片<b>全部一次選進來</b>，不用分類。AI 會看畫面、聽訪談，挑出精華片段，排成 6 幕並配上字卡。</p>
       <button class="btn dark block" id="btnLibAdd" type="button">＋ 選取所有照片／影片</button>
       <input type="file" class="file-hidden" id="fileLib" accept="image/*,video/*" multiple>
       <div id="libBox" class="hidden" style="margin-top:12px">
@@ -93,9 +82,22 @@
           <button class="btn small ghost" id="btnLibClear" type="button" style="margin-top:8px">清空素材庫</button>
         </details>
       </div>
-      <button class="btn primary block" id="btnAuto" type="button" style="margin-top:12px">🪄 開始 AI 自動剪輯</button>
+      <button class="btn primary block" id="btnAuto" type="button" style="margin-top:12px">🪄 AI 幫我剪好影片</button>
       <p class="muted" style="margin:8px 0 0">素材會存在這支手機裡，關掉網頁再回來也還在。分析時會把畫面和聲音送到 Google Gemini（免費版可能用於改善模型），請避開客戶保單等個資畫面。</p>
       <div id="autoStatus" class="muted" style="margin-top:8px"></div>
+    </div>
+
+  </section>
+
+  <!-- ② 做影片 -->
+  <section class="tab" id="tab-video">
+    <div class="hero">
+      <h1>確認後輸出影片</h1>
+      <p>AI 剪好的內容都在下面，可以直接改字卡、換順序、刪片段。也可以在各幕自己加照片影片。</p>
+    </div>
+
+    <div class="panel hidden" id="autoResultPanel">
+      <h2>🪄 AI 剪輯結果</h2>
       <div id="autoResult"></div>
     </div>
 
@@ -202,8 +204,8 @@
 </main>
 
 <nav class="tabbar">
-  <button data-tab="story" class="active" type="button"><span class="n">①</span>寫故事</button>
-  <button data-tab="video" type="button"><span class="n">②</span>做影片</button>
+  <button data-tab="story" class="active" type="button"><span class="n">①</span>故事素材</button>
+  <button data-tab="video" type="button"><span class="n">②</span>確認輸出</button>
   <button data-tab="review" type="button"><span class="n">③</span>評審</button>
 </nav>
 
@@ -242,12 +244,12 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="config.js?v=1.1"></script>
-<script src="ai.js?v=1.1"></script>
-<script src="render.js?v=1.1"></script>
-<script src="review.js?v=1.1"></script>
-<script src="store.js?v=1.1"></script>
-<script src="autoedit.js?v=1.1"></script>
-<script src="app.js?v=1.1"></script>
+<script src="config.js?v=1.2"></script>
+<script src="ai.js?v=1.2"></script>
+<script src="render.js?v=1.2"></script>
+<script src="review.js?v=1.2"></script>
+<script src="store.js?v=1.2"></script>
+<script src="autoedit.js?v=1.2"></script>
+<script src="app.js?v=1.2"></script>
 </body>
 </html>

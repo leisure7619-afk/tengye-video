@@ -128,7 +128,7 @@
     } catch (e) {
       $('#scriptStatus').textContent = '⚠️ ' + e.message;
     } finally {
-      btn.disabled = false; btn.textContent = '✨ 重新產生分鏡腳本';
+      btn.disabled = false; btn.textContent = '✨ 重新產生拍攝清單與分鏡';
     }
   });
   $('#btnCopyScriptPrompt').addEventListener('click', () => copyText(AI.fullScriptPrompt(S.form)));
@@ -221,7 +221,7 @@
       l2: S.form.goalTitle ? `晉升 ${S.form.goalTitle}` : (an.line2 || ''),
       l3: an.line3 || '請大家一起見證'
     };
-    save(); renderVideo(); showTab('video'); toast('字卡已放進各幕，接著放照片影片');
+    save(); renderVideo(); showTab('video'); toast('字卡已放進各幕');
   }
 
   /* ---------- ② 做影片 ---------- */
@@ -395,7 +395,7 @@
   function renderAct(i) {
     const box = document.getElementById('act-items-' + i);
     const arr = S.video.acts[i].items;
-    box.innerHTML = arr.map((it, k) => itemHTML(it, 'act', k)).join('') || '<p class="muted" style="margin:0">還沒有內容。先到「寫故事」產生字卡，或直接加字卡／照片。</p>';
+    box.innerHTML = arr.map((it, k) => itemHTML(it, 'act', k)).join('') || '<p class="muted" style="margin:0">還沒有內容。回到「① 故事素材」讓 AI 剪輯，或直接在這裡加字卡／照片。</p>';
     bindItems(box, arr, () => { renderAct(i); refreshDur(); });
   }
 
@@ -507,7 +507,7 @@
   async function runAuto() {
     if (autoRunning) return;
     if (!hasAI()) return toast('需要先接上 AI 才能自動剪輯', 3000);
-    if (filledCount() < 3) { toast('請先完成「① 寫故事」至少 3 題，AI 才知道你的故事', 3500); return; }
+    if (filledCount() < 3) { toast('請先回答上面的故事至少 3 題，AI 才知道你的故事', 3500); $('#qList').scrollIntoView({ behavior: 'smooth' }); return; }
     const lib = library();
     if (lib.length < 3) return toast('先選取照片和影片（至少 3 個）');
     if (S.video.acts.some(a => a.items.length) && !confirm('AI 會重新安排 6 幕的內容，覆蓋目前的安排，確定？')) return;
@@ -584,22 +584,22 @@
     };
     S.auto = { at: Date.now(), missing: plan.missing || [], checks: plan.checks || [], unused: plan.unused || [], errs: errs || [] };
     save(); renderVideo(); renderAuto();
-    $('#libDetails').open = true;
-    setTimeout(() => $('#autoResult').scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
-    toast('AI 排好了，接著確認一下就能輸出');
+    showTab('video');
+    toast('AI 剪好了，確認一下就能輸出', 3000);
   }
 
   function renderAuto() {
     const a = S.auto, box = $('#autoResult');
+    $('#autoResultPanel').classList.toggle('hidden', !a);
     if (!a) { box.innerHTML = ''; return; }
     const tl = Render.buildTimeline(project(), media);
     const needWho = library().some(x => x.m.ai && (x.m.ai.type === 'interview' || x.m.ai.type === 'cheer') && !x.m.ai.speakerSure);
     const strList = arr => arr.map(x => typeof x === 'string' ? x : `${x.id || ''} ${x.reason || ''}`);
     box.innerHTML = `
-      <div class="notice green" style="margin-top:12px">✅ AI 已排好 <b>${Render.fmt(tl.total)}</b> 的影片，各幕內容在下方，可以直接修改。</div>
+      <div class="notice green">✅ AI 已排好 <b>${Render.fmt(tl.total)}</b> 的影片，各幕內容在下方，可以直接修改。</div>
       <div class="label-s">剩下需要你做的事</div>
       <ol class="list todo">
-        ${needWho ? '<li><b>確認人物</b>：素材庫裡標「請確認是誰」的影片，填上正確稱呼（字幕會自動更新）</li>' : ''}
+        ${needWho ? '<li><b>確認人物</b>：到「① 故事素材」的素材清單，把標「請確認是誰」的影片改成正確稱呼（字幕會自動更新）</li>' : ''}
         <li><b>檢查字卡</b>：年份、事件、人名是否正確</li>
         <li><b>選配樂</b>：在下方「配樂」選 1～3 首</li>
         <li><b>預覽</b>：不喜歡的片段刪掉或換順序，再輸出</li>
