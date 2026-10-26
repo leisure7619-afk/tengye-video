@@ -1,0 +1,7 @@
+# Cloudflare Worker（Gemini 代理）設定 — 由 Cloudflare 連接 GitHub 自動部署
+name = "tengye-ai"
+main = "worker/worker.js"
+compatibility_date = "2026-10-01"
+
+[vars]
+ALLOWED_ORIGINS = "https://leisure7619-afk.github.io"
