@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>騰燁回顧影片小幫手</title>
+<meta name="theme-color" content="#F7F2EA">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%23111'/><path d='M24 18v28l22-14z' fill='%23E2533B'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Huninn&family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand"><span class="dot"></span>騰燁・回顧影片小幫手</div>
+  <button class="ai-pill" id="aiPill" type="button">AI 設定</button>
+</header>
+
+<main>
+  <!-- ① 寫故事 -->
+  <section class="tab active" id="tab-story">
+    <div class="hero">
+      <h1>說出你的故事，<br>剩下的交給小幫手</h1>
+      <p>照著三步驟做：填故事 → 放照片影片 → 交給主管前先自我評審。</p>
+      <div class="steps">
+        <div><b>① 寫故事</b>回答 8 題，AI 寫好 6 幕分鏡與字卡</div>
+        <div><b>② 做影片</b>每一幕放照片影片，手機直接輸出 MP4</div>
+        <div><b>③ 評審</b>依騰燁 5 大原則打分數、給建議</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>基本資料</h2>
+      <p class="sub">影片結尾的「下階宣告」會用到。</p>
+      <div class="row">
+        <div class="field"><label>你的名字／暱稱</label><input type="text" data-f="name" placeholder="例：小萱"></div>
+        <div class="field"><label>下階目標職級</label><input type="text" data-f="goalTitle" placeholder="例：業務襄理"></div>
+        <div class="field"><label>宣告達成日期</label><input type="date" data-f="goalDate"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>你的故事（白話文就好）</h2>
+      <p class="sub">想到什麼寫什麼，不用修飾；越具體（人、事、一句話）影片越動人。</p>
+      <div id="qList"></div>
+      <div class="btns">
+        <button class="btn small" id="btnExample" type="button">載入範例</button>
+        <button class="btn small ghost" id="btnClear" type="button">清空</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <button class="btn primary block" id="btnGenScript" type="button">✨ AI 幫我寫分鏡腳本</button>
+      <div id="noAiBox" class="hidden" style="margin-top:12px">
+        <div class="notice">目前尚未接上 AI。請按「複製 Prompt」貼到 ChatGPT／Gemini／Claude，再把 AI 的回覆整段貼回下面。</div>
+        <button class="btn block" id="btnCopyScriptPrompt" type="button">📋 複製 Prompt</button>
+        <div class="field" style="margin-top:12px">
+          <label>貼上 AI 的回覆</label>
+          <textarea id="pasteScript" placeholder="把 AI 回覆整段貼在這裡（包含 { } 的內容）"></textarea>
+        </div>
+        <button class="btn dark block" id="btnParseScript" type="button">讀取分鏡</button>
+      </div>
+      <div id="scriptStatus" class="muted" style="margin-top:8px"></div>
+    </div>
+
+    <div id="scriptOut"></div>
+  </section>
+
+  <!-- ② 做影片 -->
+  <section class="tab" id="tab-video">
+    <div class="hero">
+      <h1>放進照片與影片</h1>
+      <p>每一幕依建議放素材，字卡可以直接改字、標顏色。全部在你的手機上處理，不會上傳。</p>
+    </div>
+
+    <div class="panel">
+      <h2>影片設定</h2>
+      <div class="opt"><span>畫面方向</span>
+        <div class="seg" data-set="orient"><button data-v="landscape">橫式 16:9</button><button data-v="portrait">直式 9:16</button></div></div>
+      <div class="opt"><span>字卡字體</span>
+        <div class="seg" data-set="font"><button data-v="hand">手寫體</button><button data-v="round">粗圓體</button></div></div>
+      <div class="opt"><span>節奏</span>
+        <div class="seg" data-set="pace"><button data-v="1.25">慢・抒情</button><button data-v="1">標準</button><button data-v="0.8">快</button></div></div>
+      <div class="opt"><span>畫質</span>
+        <div class="seg" data-set="quality"><button data-v="720">720p（建議）</button><button data-v="1080">1080p</button></div></div>
+    </div>
+
+    <div class="panel">
+      <h2>配樂（三段式）</h2>
+      <p class="sub">溫馨開場 → 轉折推進 → 高潮感動。只放一首也可以，會自動接續。訪談說話時音樂自動變小聲。</p>
+      <div id="musicSlots"></div>
+    </div>
+
+    <div class="panel">
+      <h2>時間分配</h2>
+      <p class="sub" id="durTotal">目前長度 0:00</p>
+      <div class="durbar" id="durBar"></div>
+      <div class="durlegend" id="durLegend"></div>
+    </div>
+
+    <div class="panel">
+      <h2>開場標題卡</h2>
+      <label class="check"><input type="checkbox" id="openOn" checked><span>影片一開始放標題字卡</span></label>
+      <div class="row" id="openFields">
+        <div class="field"><label>小標</label><input type="text" id="open1" placeholder="騰燁通訊處"></div>
+        <div class="field"><label>主標題</label><input type="text" id="open2" placeholder="小萱的保險路"></div>
+      </div>
+    </div>
+
+    <div id="actsEditor"></div>
+
+    <div class="panel">
+      <h2>壓軸：親友加油快剪 ＋ 下階宣告</h2>
+      <p class="sub">請 5～9 組親友自拍喊「加油！」，每段自動剪成約 2 秒快速串接。</p>
+      <div class="items" id="cheerItems"></div>
+      <button class="btn block" id="btnAddCheer" type="button">＋ 加入加油影片</button>
+      <input type="file" class="file-hidden" id="fileCheer" accept="video/*,image/*" multiple>
+      <div class="label-s" style="margin-top:16px">下階宣告字卡</div>
+      <div class="field"><input type="text" id="ann1" placeholder="2027.03.31"></div>
+      <div class="field"><input type="text" id="ann2" placeholder="晉升 業務襄理"></div>
+      <div class="field"><input type="text" id="ann3" placeholder="請大家一起見證"></div>
+    </div>
+
+    <div class="panel">
+      <h2>輸出前檢查</h2>
+      <label class="check"><input type="checkbox" class="pv"><span>客戶保單、健診畫面都是<b>遠景或已遮住</b>，看不到姓名、身分證、保單號碼</span></label>
+      <label class="check"><input type="checkbox" class="pv"><span>沒有炫富畫面、沒有業績數字流水帳</span></label>
+      <label class="check"><input type="checkbox" class="pv"><span>出現的親友都同意入鏡</span></label>
+      <div class="btns" style="margin-top:10px">
+        <button class="btn" id="btnPreview" type="button">▶ 預覽</button>
+        <button class="btn primary" id="btnExport" type="button">🎬 輸出影片</button>
+      </div>
+      <p class="muted" style="margin:10px 0 0">輸出時間 ≈ 影片長度。過程中請保持螢幕開啟、不要切換 App。照片影片只存在這次畫面，重新整理需重新放入。</p>
+    </div>
+  </section>
+
+  <!-- ③ 評審 -->
+  <section class="tab" id="tab-review">
+    <div class="hero">
+      <h1>交給主管前，先讓 AI 評一次</h1>
+      <p>依「騰燁 5 大評審原則」100 分制打分，並給出可直接照改的建議。</p>
+    </div>
+
+    <div class="panel">
+      <div class="seg" id="rvMode" style="margin-bottom:14px"><button data-v="video" class="on">上傳影片</button><button data-v="text">貼腳本文字</button></div>
+
+      <div id="rvVideoBox">
+        <div class="field">
+          <label>選擇影片</label>
+          <input type="file" id="rvFile" accept="video/*">
+          <span class="help" id="rvFileInfo"></span>
+        </div>
+        <div class="field">
+          <label>補充說明（可不填）</label>
+          <textarea id="rvNote" placeholder="例：訪談對象是媽媽和老公；最後宣告 2027/3/31 晉升襄理"></textarea>
+        </div>
+      </div>
+      <div id="rvTextBox" class="hidden">
+        <div class="field">
+          <label>貼上腳本／逐字稿／字卡內容</label>
+          <textarea id="rvText" style="min-height:200px" placeholder="把影片的字卡、旁白、訪談逐字稿貼在這裡"></textarea>
+        </div>
+      </div>
+
+      <div class="notice" id="rvPrivacy">影片會擷取畫面與聲音送到 Google Gemini 評審。免費版 Gemini 可能用於改善模型，<b>請先確認畫面中沒有可辨識的客戶資料</b>。</div>
+      <button class="btn primary block" id="btnReview" type="button">📝 開始評審</button>
+      <div id="rvNoAi" class="hidden" style="margin-top:12px">
+        <div class="notice">目前尚未接上 AI，影片評審需要 AI 連線。「貼腳本文字」模式可複製 Prompt 到 ChatGPT／Gemini 使用。</div>
+        <button class="btn block" id="btnCopyReviewPrompt" type="button">📋 複製評審 Prompt</button>
+      </div>
+      <div id="rvStatus" class="muted" style="margin-top:10px"></div>
+    </div>
+
+    <div id="rvOut"></div>
+  </section>
+</main>
+
+<nav class="tabbar">
+  <button data-tab="story" class="active" type="button"><span class="n">①</span>寫故事</button>
+  <button data-tab="video" type="button"><span class="n">②</span>做影片</button>
+  <button data-tab="review" type="button"><span class="n">③</span>評審</button>
+</nav>
+
+<!-- 影片輸出視窗 -->
+<div class="modal" id="renderModal">
+  <div class="mtitle" id="rmTitle">影片製作中</div>
+  <canvas id="stage" width="1280" height="720"></canvas>
+  <video id="resultVideo" class="hidden" controls playsinline></video>
+  <div class="prog"><i id="rmBar"></i></div>
+  <div class="mtext" id="rmText">準備中…</div>
+  <div class="btns" id="rmBtnsRun"><button class="btn block" id="rmCancel" type="button">取消</button></div>
+  <div class="btns hidden" id="rmBtnsDone">
+    <button class="btn primary" id="rmSave" type="button">⬇ 儲存影片</button>
+    <button class="btn" id="rmReview" type="button">📝 送去評審</button>
+    <button class="btn" id="rmClose" type="button">關閉</button>
+  </div>
+</div>
+
+<!-- AI 設定 -->
+<div class="sheet" id="aiSheet">
+  <div class="inner">
+    <h2 style="margin:0 0 6px">AI 連線設定</h2>
+    <p class="muted" style="margin:0 0 12px" id="aiState"></p>
+    <div class="field">
+      <label>AI 服務網址（Cloudflare Worker）</label>
+      <span class="help">管理者設定好之後會寫進網站，一般組員不用動。</span>
+      <input type="url" id="aiUrl" placeholder="https://xxxx.workers.dev">
+    </div>
+    <div class="btns">
+      <button class="btn" id="aiTest" type="button">測試連線</button>
+      <button class="btn primary" id="aiSave" type="button">儲存</button>
+      <button class="btn ghost" id="aiClose" type="button">關閉</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script src="ai.js"></script>
+<script src="render.js"></script>
+<script src="review.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
