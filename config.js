@@ -2,5 +2,5 @@
 // WORKER_URL：Cloudflare Worker 網址（Gemini 代理）。留空 = 自動改用「複製 Prompt」模式。
 window.APP_CONFIG = {
   WORKER_URL: 'https://tengye-ai.leisure7619.workers.dev',
-  VERSION: '1.0.0'
+  VERSION: '1.1.0'
 };

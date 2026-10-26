@@ -5,8 +5,7 @@
   const $$ = s => Array.from(document.querySelectorAll(s));
   const KEY = 'tengye.v1';
   const media = new Map();
-  let uidN = Date.now() % 100000;
-  const uid = () => 'm' + (uidN++).toString(36);
+  const uid = () => 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
   /* ---------- 狀態 ---------- */
   function blank() {
@@ -18,7 +17,8 @@
         opening: { on: true, l1: '', l2: '' },
         acts: ACTS.map(() => ({ items: [] })),
         cheers: [], ann: { l1: '', l2: '', l3: '' }, music: [null, null, null]
-      }
+      },
+      auto: null
     };
   }
   let S = blank();
@@ -28,20 +28,15 @@
       S = Object.assign(blank(), saved);
       S.form = Object.assign(blank().form, saved.form || {});
       S.video = Object.assign(blank().video, saved.video || {});
-      S.video.acts = ACTS.map((_, i) => ({ items: ((saved.video && saved.video.acts && saved.video.acts[i] && saved.video.acts[i].items) || []).filter(it => it.type === 'card') }));
-      S.video.cheers = []; S.video.music = [null, null, null];
+      S.video.acts = ACTS.map((_, i) => ({ items: (saved.video && saved.video.acts && saved.video.acts[i] && saved.video.acts[i].items) || [] }));
+      S.video.cheers = S.video.cheers || []; S.video.music = S.video.music || [null, null, null];
     }
   } catch (e) {}
   let saveT = 0;
   function save() {
     clearTimeout(saveT);
     saveT = setTimeout(() => {
-      try {
-        const copy = JSON.parse(JSON.stringify(S));
-        copy.video.acts.forEach(a => { a.items = a.items.filter(it => it.type === 'card'); });
-        copy.video.cheers = []; copy.video.music = [null, null, null];
-        localStorage.setItem(KEY, JSON.stringify(copy));
-      } catch (e) {}
+      try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
     }, 300);
   }
 
@@ -70,6 +65,7 @@
     $$('.tabbar button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
     window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
     if (name === 'video') refreshDur();
+    try { localStorage.setItem('tengye.tab', name); } catch (e) {}
   }
   $$('.tabbar button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
 
@@ -256,11 +252,11 @@
       </div>`;
     }).join('') + '<p class="muted" style="margin:8px 0 0">請使用有授權的音樂（例如 YouTube 音效庫免版稅音樂）。</p>';
     $$('[data-madd]').forEach(b => b.addEventListener('click', () => $(`[data-mfile="${b.dataset.madd}"]`).click()));
-    $$('[data-mdel]').forEach(b => b.addEventListener('click', () => { S.video.music[+b.dataset.mdel] = null; renderMusic(); }));
+    $$('[data-mdel]').forEach(b => b.addEventListener('click', () => { const id = S.video.music[+b.dataset.mdel]; S.video.music[+b.dataset.mdel] = null; if (id && !S.video.music.includes(id)) removeMedia(id); save(); renderMusic(); }));
     $$('[data-mfile]').forEach(inp => inp.addEventListener('change', async () => {
       const f = inp.files[0]; if (!f) return;
-      const id = uid(); media.set(id, { kind: 'audio', file: f, url: URL.createObjectURL(f), name: f.name });
-      S.video.music[+inp.dataset.mfile] = id; renderMusic();
+      try { const m = await registerFile(f); S.video.music[+inp.dataset.mfile] = m.id; save(); renderMusic(); }
+      catch (e) { toast('音樂讀取失敗', 3000); }
     }));
   }
 
@@ -344,21 +340,56 @@
     });
   }
 
-  async function addFiles(files, arr, isCheer) {
+  /* ---------- 素材保存（手機 IndexedDB） ---------- */
+  let persistWarned = false;
+  function persistMedia(id) {
+    const m = media.get(id); if (!m || !window.Store) return Promise.resolve();
+    return Store.put({ id, kind: m.kind, name: m.name, type: m.file.type, blob: m.file, duration: m.duration, w: m.w, h: m.h, thumb: m.thumb, ai: m.ai || null, person: m.person || '', added: m.added || Date.now() })
+      .catch(e => { console.warn(e); if (!persistWarned) { persistWarned = true; toast('手機儲存空間不足，素材只保留到關閉網頁為止', 4000); } });
+  }
+  async function registerFile(f) {
+    const m = await Render.prepareMedia(f);
+    m.id = uid(); m.added = Date.now() + Math.random();
+    media.set(m.id, m); persistMedia(m.id);
+    return m;
+  }
+  async function restoreMedia() {
+    let recs = [];
+    try { recs = await Store.all(); } catch (e) { return; }
+    recs.sort((a, b) => (a.added || 0) - (b.added || 0));
+    for (const r of recs) {
+      try {
+        const file = r.blob instanceof File ? r.blob : new File([r.blob], r.name || 'file', { type: r.type || r.blob.type });
+        const m = r.kind === 'image' ? await Render.prepareMedia(file)
+          : { kind: r.kind, file, url: URL.createObjectURL(file), duration: r.duration, w: r.w, h: r.h, thumb: r.thumb };
+        Object.assign(m, { id: r.id, ai: r.ai || null, person: r.person || '', added: r.added, name: r.name });
+        media.set(r.id, m);
+      } catch (e) { console.warn('素材還原失敗', e); }
+    }
+  }
+  function removeMedia(id) {
+    media.delete(id); if (window.Store) Store.del(id).catch(() => {});
+    S.video.acts.forEach(a => { a.items = a.items.filter(it => it.mid !== id); });
+    S.video.cheers = S.video.cheers.filter(it => it.mid !== id);
+    S.video.music = S.video.music.map(x => x === id ? null : x);
+    save();
+  }
+
+  async function addFiles(files, arr) {
     const list = Array.from(files || []);
     if (!list.length) return;
-    toast(`讀取 ${list.length} 個檔案中…`, 60000);
     let ok = 0;
-    for (const f of list) {
+    for (let i = 0; i < list.length; i++) {
+      toast(`讀取素材 ${i + 1}/${list.length}…`, 60000);
       try {
-        const m = await Render.prepareMedia(f);
+        const m = await registerFile(list[i]);
         if (m.kind === 'audio') continue;
-        const id = uid(); media.set(id, m);
-        arr.push({ id: uid(), type: 'media', mid: id, caption: '', from: 0 });
+        if (arr) arr.push({ id: uid(), type: 'media', mid: m.id, caption: '', from: 0 });
         ok++;
       } catch (e) { toast(e.message, 3000); }
     }
     toast(`已加入 ${ok} 個素材`);
+    save(); renderLibrary();
   }
 
   function renderAct(i) {
@@ -412,7 +443,172 @@
     bindItems(box, arr, () => { renderCheers(); refreshDur(); });
   }
   $('#btnAddCheer').addEventListener('click', () => $('#fileCheer').click());
-  $('#fileCheer').addEventListener('change', async e => { await addFiles(e.target.files, S.video.cheers, true); e.target.value = ''; renderCheers(); refreshDur(); });
+  $('#fileCheer').addEventListener('change', async e => { await addFiles(e.target.files, S.video.cheers); e.target.value = ''; renderCheers(); refreshDur(); });
+
+  /* ---------- 🪄 素材庫與 AI 自動剪輯 ---------- */
+  const TYPE_LABEL = { interview: '訪談', cheer: '加油', broll: '生活畫面', other: '不適用', photo: '照片' };
+  function library() {
+    let v = 0, p = 0;
+    return Array.from(media.values()).filter(m => m.kind === 'image' || m.kind === 'video')
+      .sort((a, b) => (a.added || 0) - (b.added || 0))
+      .map(m => ({ code: m.kind === 'video' ? 'V' + (++v) : 'P' + (++p), m }));
+  }
+
+  function renderLibrary() {
+    const lib = library();
+    const vids = lib.filter(x => x.m.kind === 'video'), pics = lib.filter(x => x.m.kind === 'image');
+    const done = lib.filter(x => x.m.ai && x.m.ai.type).length;
+    $('#libBox').classList.toggle('hidden', !lib.length);
+    $('#libSummary').textContent = `照片 ${pics.length}・影片 ${vids.length}・AI 已分析 ${done}/${lib.length}`;
+    $('#libVideos').innerHTML = vids.map(({ code, m }) => {
+      const a = m.ai || {};
+      const who = a.type === 'interview' || a.type === 'cheer';
+      return `<div class="lib-v" data-mid="${m.id}">
+        <div class="thumb" style="background-image:url('${m.thumb || ''}')"><span class="badge">${code}・${Render.fmt(m.duration)}</span></div>
+        <div class="body">
+          <div>${a.type ? `<span class="tag">${TYPE_LABEL[a.type] || a.type}${a.type !== 'cheer' && a.type !== 'other' ? '・第' + a.act + '幕' : ''}</span>` : '<span class="tag">未分析</span>'}${a.privacy ? '<span class="tag warn">⚠️ 疑似個資</span>' : ''}${who && !a.speakerSure ? '<span class="tag warn">請確認是誰</span>' : ''}</div>
+          ${who ? `<input type="text" data-person value="${esc(m.person || '')}" placeholder="這是誰？（例：媽媽）">` : ''}
+          <div class="muted lib-sum">${esc(a.summary || m.name || '')}</div>
+        </div>
+        <button class="lib-del" data-ldel type="button" aria-label="刪除">✕</button>
+      </div>`;
+    }).join('');
+    $('#libPhotos').innerHTML = pics.map(({ code, m }) => {
+      const a = m.ai || {};
+      return `<div class="lib-p" data-mid="${m.id}" style="background-image:url('${m.thumb || ''}')">
+        <span class="badge">${code}${a.act ? '・' + a.act + '幕' : ''}</span>${a.privacy || a.lux ? '<span class="badge warn">⚠️</span>' : ''}
+        <button data-ldel type="button" aria-label="刪除">✕</button></div>`;
+    }).join('');
+    $$('#libBox [data-ldel]').forEach(b => b.addEventListener('click', () => {
+      const id = b.closest('[data-mid]').dataset.mid;
+      if (!confirm('從素材庫刪除這個素材？（影片裡用到的地方也會一起移除）')) return;
+      removeMedia(id); renderLibrary(); renderVideo();
+    }));
+    $$('#libBox [data-person]').forEach(inp => inp.addEventListener('change', () => {
+      const m = media.get(inp.closest('[data-mid]').dataset.mid); if (!m) return;
+      const old = m.person || '', val = inp.value.trim();
+      m.person = val; if (m.ai) m.ai.speakerSure = true;
+      persistMedia(m.id);
+      const fix = it => { if (it.mid === m.id && (!it.caption || it.caption === old)) it.caption = val; };
+      S.video.acts.forEach(a => a.items.forEach(fix)); S.video.cheers.forEach(fix);
+      save(); renderVideo(); renderLibrary(); toast('已更新字幕');
+    }));
+  }
+  $('#btnLibAdd').addEventListener('click', () => $('#fileLib').click());
+  $('#fileLib').addEventListener('change', async e => { await addFiles(e.target.files, null); e.target.value = ''; });
+  $('#btnLibClear').addEventListener('click', async () => {
+    if (!confirm('清空所有素材？各幕裡的照片影片也會移除（字卡保留）。')) return;
+    Array.from(media.keys()).forEach(id => removeMedia(id));
+    try { await Store.clear(); } catch (e) {}
+    S.auto = null; save(); renderLibrary(); renderVideo(); renderAuto();
+  });
+
+  let autoRunning = false;
+  async function runAuto() {
+    if (autoRunning) return;
+    if (!hasAI()) return toast('需要先接上 AI 才能自動剪輯', 3000);
+    if (filledCount() < 3) { toast('請先完成「① 寫故事」至少 3 題，AI 才知道你的故事', 3500); return; }
+    const lib = library();
+    if (lib.length < 3) return toast('先選取照片和影片（至少 3 個）');
+    if (S.video.acts.some(a => a.items.length) && !confirm('AI 會重新安排 6 幕的內容，覆蓋目前的安排，確定？')) return;
+    autoRunning = true;
+    const btn = $('#btnAuto'); btn.disabled = true;
+    const st = msg => { $('#autoStatus').innerHTML = '<span class="spinner"></span> ' + esc(msg); };
+    let wake = null; try { if (navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); } catch (e) {}
+    const errs = [];
+    try {
+      const vids = lib.filter(x => x.m.kind === 'video' && !(x.m.ai && x.m.ai.type));
+      for (let i = 0; i < vids.length; i++) {
+        const { code, m } = vids[i];
+        try {
+          m.ai = await AutoEdit.analyzeVideo(m, S.form, msg => st(`分析影片 ${i + 1}/${vids.length}（${code}）：${msg}`));
+          if (!m.person && m.ai.speaker) m.person = m.ai.speaker;
+          persistMedia(m.id); renderLibrary();
+        } catch (e) {
+          if (e.status === 429) throw e;
+          errs.push(`${code}（${m.name}）分析失敗：${e.message}`);
+        }
+      }
+      const pics = lib.filter(x => x.m.kind === 'image' && !(x.m.ai && x.m.ai.type));
+      if (pics.length) {
+        const res = await AutoEdit.analyzePhotos(pics, S.form, st);
+        pics.forEach(({ m }) => { if (res[m.id]) { m.ai = res[m.id]; persistMedia(m.id); } });
+        renderLibrary();
+      }
+      const plan = await AutoEdit.assemble(S.form, S.script, library(), st);
+      applyPlan(plan, errs);
+      $('#autoStatus').textContent = '';
+    } catch (e) {
+      $('#autoStatus').textContent = '⚠️ ' + e.message + '（已分析好的素材會保留，再按一次會接著做）';
+    } finally {
+      autoRunning = false; btn.disabled = false;
+      try { wake && wake.release(); } catch (e) {}
+    }
+  }
+  $('#btnAuto').addEventListener('click', runAuto);
+
+  function applyPlan(plan, errs) {
+    const byCode = {}; library().forEach(x => { byCode[x.code] = x.m; });
+    const mk = (o, isCheer) => {
+      const m = byCode[String(o.id || '').trim().toUpperCase()]; if (!m) return null;
+      const it = { id: uid(), type: 'media', mid: m.id, caption: o.caption ? String(o.caption) : '', from: 0 };
+      if (m.kind === 'video') {
+        let from = Math.max(0, Number(o.from) || 0), to = Number(o.to) || 0;
+        if (from >= (m.duration || 0) - 0.3) from = 0;
+        if (!(to > from)) to = from + (isCheer ? 2.4 : 10);
+        to = Math.min(m.duration || to, to);
+        it.from = Math.round(from * 10) / 10;
+        it.secs = Math.max(1, Math.round((to - from) * 10) / 10);
+        if (!it.caption && m.person && m.ai && (m.ai.type === 'interview' || isCheer)) it.caption = m.person;
+      }
+      return it;
+    };
+    S.video.acts = ACTS.map((a, i) => {
+      const src = (plan.acts || []).find(x => Number(x.act) === a.n) || (plan.acts || [])[i] || {};
+      const items = [];
+      (src.items || []).forEach(o => {
+        if (o && o.card) items.push({ id: uid(), type: 'card', text: String(o.card).replace(/\\n/g, '\n') });
+        else if (o && o.id) { const it = mk(o, false); if (it) items.push(it); }
+      });
+      return { items };
+    });
+    S.video.cheers = (plan.cheers || []).map(o => mk(o, true)).filter(Boolean);
+    S.video.opening.on = true;
+    S.video.opening.l1 = plan.subtitle || '騰燁通訊處';
+    S.video.opening.l2 = plan.title || (S.form.name ? `${S.form.name}的保險路` : '');
+    const an = plan.announcement || {};
+    S.video.ann = {
+      l1: fmtDate(S.form.goalDate) || an.line1 || '',
+      l2: S.form.goalTitle ? `晉升 ${S.form.goalTitle}` : (an.line2 || ''),
+      l3: an.line3 || '請大家一起見證'
+    };
+    S.auto = { at: Date.now(), missing: plan.missing || [], checks: plan.checks || [], unused: plan.unused || [], errs: errs || [] };
+    save(); renderVideo(); renderAuto();
+    $('#libDetails').open = true;
+    setTimeout(() => $('#autoResult').scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+    toast('AI 排好了，接著確認一下就能輸出');
+  }
+
+  function renderAuto() {
+    const a = S.auto, box = $('#autoResult');
+    if (!a) { box.innerHTML = ''; return; }
+    const tl = Render.buildTimeline(project(), media);
+    const needWho = library().some(x => x.m.ai && (x.m.ai.type === 'interview' || x.m.ai.type === 'cheer') && !x.m.ai.speakerSure);
+    const strList = arr => arr.map(x => typeof x === 'string' ? x : `${x.id || ''} ${x.reason || ''}`);
+    box.innerHTML = `
+      <div class="notice green" style="margin-top:12px">✅ AI 已排好 <b>${Render.fmt(tl.total)}</b> 的影片，各幕內容在下方，可以直接修改。</div>
+      <div class="label-s">剩下需要你做的事</div>
+      <ol class="list todo">
+        ${needWho ? '<li><b>確認人物</b>：素材庫裡標「請確認是誰」的影片，填上正確稱呼（字幕會自動更新）</li>' : ''}
+        <li><b>檢查字卡</b>：年份、事件、人名是否正確</li>
+        <li><b>選配樂</b>：在下方「配樂」選 1～3 首</li>
+        <li><b>預覽</b>：不喜歡的片段刪掉或換順序，再輸出</li>
+      </ol>
+      ${a.checks.length ? `<div class="label-s">AI 請你確認</div><ul class="list">${a.checks.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+      ${a.missing.length ? `<div class="label-s">建議補拍</div><ul class="list">${a.missing.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+      ${a.unused.length ? `<details><summary class="muted">沒用到的素材（${a.unused.length}）</summary><ul class="list">${strList(a.unused).map(x => `<li>${esc(x)}</li>`).join('')}</ul></details>` : ''}
+      ${a.errs.length ? `<div class="notice red" style="margin-top:8px">${a.errs.map(esc).join('<br>')}</div>` : ''}`;
+  }
 
   /* ---------- 輸出 ---------- */
   let renderer = null, lastBlob = null;
@@ -562,6 +758,15 @@
   }
 
   /* ---------- 啟動 ---------- */
-  renderScript(); renderVideo(); setRvMode('video'); refreshAI();
-  window.__app = { S, media, renderReview, setScript };
+  renderScript(); renderVideo(); setRvMode('video'); refreshAI(); renderAuto();
+  try { const t = localStorage.getItem('tengye.tab'); if (t && t !== 'story') showTab(t); } catch (e) {}
+  restoreMedia().then(() => {
+    // 清掉找不到素材的項目
+    const ok = it => it.type === 'card' || media.has(it.mid);
+    S.video.acts.forEach(a => { a.items = a.items.filter(ok); });
+    S.video.cheers = S.video.cheers.filter(ok);
+    S.video.music = S.video.music.map(id => (id && media.has(id)) ? id : null);
+    renderVideo(); renderLibrary(); renderAuto();
+  });
+  window.__app = { S, media, renderReview, setScript, library };
 })();

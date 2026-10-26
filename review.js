@@ -4,7 +4,9 @@
 
   function mmss(t) { t = Math.max(0, Math.floor(t)); return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0'); }
 
-  async function extractFrames(file, onProgress) {
+  async function extractFrames(file, onProgress, opt) {
+    opt = opt || {};
+    const MAXF = opt.max || MAX_FRAMES, MINF = opt.min || 8, EVERY = opt.every || 3, FW = opt.width || FRAME_W, Q = opt.quality || 0.62;
     const url = URL.createObjectURL(file);
     const v = document.createElement('video');
     v.muted = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto'; v.src = url;
@@ -13,19 +15,19 @@
     try { await v.play(); v.pause(); } catch (e) {}
     const dur = isFinite(v.duration) ? v.duration : 0;
     if (!dur) throw new Error('讀不到影片長度');
-    const n = Math.min(MAX_FRAMES, Math.max(8, Math.ceil(dur / 3)));
+    const n = Math.min(MAXF, Math.max(MINF, Math.ceil(dur / EVERY)));
     const step = dur / n;
     const c = document.createElement('canvas');
     const vw = v.videoWidth || 1280, vh = v.videoHeight || 720;
-    c.width = FRAME_W; c.height = Math.round(FRAME_W * vh / vw);
+    c.width = FW; c.height = Math.round(FW * vh / vw);
     const ctx = c.getContext('2d');
     const frames = [];
     for (let i = 0; i < n; i++) {
       const t = Math.min(dur - 0.05, (i + 0.5) * step);
       await new Promise(res => { const to = setTimeout(res, 4000); v.onseeked = () => { clearTimeout(to); res(); }; v.currentTime = t; });
       ctx.drawImage(v, 0, 0, c.width, c.height);
-      frames.push({ t, data: c.toDataURL('image/jpeg', 0.62).split(',')[1] });
-      onProgress && onProgress(`擷取畫面 ${i + 1}/${n}`);
+      frames.push({ t, data: c.toDataURL('image/jpeg', Q).split(',')[1] });
+      onProgress && onProgress(`擷取畫面 ${i + 1}/${n}`, i + 1, n);
     }
     v.removeAttribute('src'); v.load(); URL.revokeObjectURL(url);
     return { frames, duration: dur };
@@ -48,7 +50,9 @@
     return btoa(s);
   }
 
-  async function extractAudio(file, onProgress) {
+  async function extractAudio(file, onProgress, opt) {
+    opt = opt || {};
+    const MAXS = opt.maxSec || MAX_AUDIO_SEC;
     if (file.size > 350 * 1024 * 1024) return { skipped: '影片檔太大，略過聲音分析' };
     onProgress && onProgress('擷取聲音…');
     try {
@@ -57,12 +61,12 @@
       const oac = new OAC(1, AUDIO_RATE, AUDIO_RATE);
       const ab = await new Promise((res, rej) => { const p = oac.decodeAudioData(raw, res, rej); if (p && p.then) p.then(res, rej); });
       // 混成單聲道並重新取樣到 12kHz
-      const len = Math.min(ab.duration, MAX_AUDIO_SEC);
+      const len = Math.min(ab.duration, MAXS);
       const off = new OAC(1, Math.ceil(len * AUDIO_RATE), AUDIO_RATE);
       const src = off.createBufferSource(); src.buffer = ab; src.connect(off.destination); src.start(0);
       const out = await new Promise((res, rej) => { off.oncomplete = e => res(e.renderedBuffer); const p = off.startRendering(); if (p && p.then) p.then(res, rej); });
       const wav = encodeWav(out.getChannelData(0), AUDIO_RATE);
-      return { data: b64(wav), seconds: len, truncated: ab.duration > MAX_AUDIO_SEC };
+      return { data: b64(wav), seconds: len, truncated: ab.duration > MAXS };
     } catch (e) {
       console.warn(e);
       return { skipped: '這支影片的聲音無法在手機上讀取，評審只看畫面' };

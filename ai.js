@@ -164,11 +164,12 @@ dims 必須 5 項依序 D1～D5；total 為各項加總；腳本模式沒有時�
     }
     const raw = await res.text();
     if (!res.ok) {
-      if (res.status === 429) throw new Error('AI 目前太忙（免費額度），請 1 分鐘後再試');
-      if (res.status === 413) throw new Error('影片資料太大，請改用較短的影片');
+      const E = m => Object.assign(new Error(m), { status: res.status });
+      if (res.status === 429) throw E('AI 目前太忙（免費額度），請 1 分鐘後再試');
+      if (res.status === 413) throw E('影片資料太大，請改用較短的影片');
       let msg = raw;
       try { const j = JSON.parse(raw); msg = (j.error && (j.error.message || (j.error.text && JSON.parse(j.error.text).error.message))) || raw; } catch (e) {}
-      throw new Error('AI 服務錯誤（' + res.status + '）：' + String(msg).slice(0, 160));
+      throw E('AI 服務錯誤（' + res.status + '）：' + String(msg).slice(0, 160));
     }
     let data;
     try { data = JSON.parse(raw); } catch (e) { throw new Error('AI 回覆格式異常'); }
@@ -187,7 +188,7 @@ dims 必須 5 項依序 D1～D5；total 為各項加總；腳本模式沒有時�
   }
 
   window.AI = {
-    ACTS, QUESTIONS, EXAMPLE, DIMS,
+    ACTS, QUESTIONS, EXAMPLE, DIMS, STRUCTURE_TEXT,
     SCRIPT_SYSTEM, REVIEW_SYSTEM,
     scriptPrompt, reviewPromptText, formToText,
     workerUrl, callGemini, extractJSON, pingWorker,

@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Huninn&family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=1.1">
 </head>
 <body>
 
@@ -72,7 +72,31 @@
   <section class="tab" id="tab-video">
     <div class="hero">
       <h1>放進照片與影片</h1>
-      <p>每一幕依建議放素材，字卡可以直接改字、標顏色。全部在你的手機上處理，不會上傳。</p>
+      <p>最快的方法：素材一次全選進來，交給 AI 自動剪輯。也可以在下方各幕自己放。</p>
+    </div>
+
+    <div class="panel auto-panel">
+      <h2>🪄 AI 自動剪輯</h2>
+      <p class="sub">把拍好的照片、訪談、加油影片<b>一次全部選進來</b>。AI 會看畫面、聽訪談，挑出精華片段，自動排成 6 幕並配上字卡。</p>
+      <ol class="list" style="margin-top:0">
+        <li>先完成「① 寫故事」（AI 才知道你的故事）</li>
+        <li>按下方按鈕選取所有素材（可以分好幾次選）</li>
+        <li>按「開始 AI 自動剪輯」，等幾分鐘，畫面保持開啟</li>
+      </ol>
+      <button class="btn dark block" id="btnLibAdd" type="button">＋ 選取所有照片／影片</button>
+      <input type="file" class="file-hidden" id="fileLib" accept="image/*,video/*" multiple>
+      <div id="libBox" class="hidden" style="margin-top:12px">
+        <details id="libDetails">
+          <summary><span id="libSummary"></span><span class="muted">（點開查看）</span></summary>
+          <div id="libVideos" class="lib-videos"></div>
+          <div id="libPhotos" class="lib-photos"></div>
+          <button class="btn small ghost" id="btnLibClear" type="button" style="margin-top:8px">清空素材庫</button>
+        </details>
+      </div>
+      <button class="btn primary block" id="btnAuto" type="button" style="margin-top:12px">🪄 開始 AI 自動剪輯</button>
+      <p class="muted" style="margin:8px 0 0">素材會存在這支手機裡，關掉網頁再回來也還在。分析時會把畫面和聲音送到 Google Gemini（免費版可能用於改善模型），請避開客戶保單等個資畫面。</p>
+      <div id="autoStatus" class="muted" style="margin-top:8px"></div>
+      <div id="autoResult"></div>
     </div>
 
     <div class="panel">
@@ -132,7 +156,7 @@
         <button class="btn" id="btnPreview" type="button">▶ 預覽</button>
         <button class="btn primary" id="btnExport" type="button">🎬 輸出影片</button>
       </div>
-      <p class="muted" style="margin:10px 0 0">輸出時間 ≈ 影片長度。過程中請保持螢幕開啟、不要切換 App。照片影片只存在這次畫面，重新整理需重新放入。</p>
+      <p class="muted" style="margin:10px 0 0">輸出時間 ≈ 影片長度。過程中請保持螢幕開啟、不要切換 App。</p>
     </div>
   </section>
 
@@ -218,10 +242,12 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="config.js"></script>
-<script src="ai.js"></script>
-<script src="render.js"></script>
-<script src="review.js"></script>
-<script src="app.js"></script>
+<script src="config.js?v=1.1"></script>
+<script src="ai.js?v=1.1"></script>
+<script src="render.js?v=1.1"></script>
+<script src="review.js?v=1.1"></script>
+<script src="store.js?v=1.1"></script>
+<script src="autoedit.js?v=1.1"></script>
+<script src="app.js?v=1.1"></script>
 </body>
 </html>
